@@ -31,3 +31,45 @@ Lack of predictive tools for growth assessment
 Time-consuming manual documentation
 
 PrepAPig addresses these challenges by integrating growth tracking, feed monitoring, vaccination scheduling, and AI-based prediction into a single platform.
+
+
+Installation
+Prerequisites
+
+Before installing the system, ensure the following software is installed:
+
+Node.js (v18 or later)
+npm (Node Package Manager)
+MongoDB or MySQL (depending on project configuration)
+Git
+Step 1: Clone the Repository
+git clone https://github.com/your-username/prepapig.git
+cd prepapig
+Step 2: Install Dependencies
+npm install
+Step 3: Configure Environment Variables
+
+Create a .env file in the root directory and add the required configuration:
+
+PORT=3000
+DB_URI=your_database_connection_string
+JWT_SECRET=your_secret_key
+Step 4: Start the Database
+
+Ensure your database server is running before launching the application.
+
+Step 5: Run the Application
+
+Development Mode:
+
+npm run dev
+
+Production Mode:
+
+npm start
+Step 6: Access the Application
+
+Open your browser and navigate to:
+
+http://localhost:3000
+github.com
