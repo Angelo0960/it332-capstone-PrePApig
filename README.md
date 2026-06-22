@@ -213,3 +213,33 @@ AI Module:
 | report_type    | VARCHAR(100) | NOT NULL           | Report category          |
 | generated_date | DATETIME     | NOT NULL           | Date generated           |
 | file_path      | VARCHAR(255) | NOT NULL           | Report storage location  |
+
+## Database Entity Relationship ##
+| Parent Table | Relationship | Child Table                                   |
+| ------------ | ------------ | --------------------------------------------- |
+| pig_batches  | 1 : Many     | growth_records                                |
+| pig_batches  | 1 : Many     | feed_records                                  |
+| pig_batches  | 1 : Many     | vaccination_records                           |
+| pig_batches  | 1 : Many     | expenses                                      |
+| pig_batches  | 1 : Many     | notifications                                 |
+| users        | 1 : Many     | pig_batches (optional ownership relationship) |
+
+## Development Roadmap
+### Sprint 1
+Project setup
+Authentication
+Database creation
+### Sprint 2
+Pig batch management
+Growth monitoring
+### Sprint 3
+Feed and vaccination modules
+### Sprint 4
+Expense tracking
+Reports
+### Sprint 5
+Analytics
+Notifications
+### Sprint 6
+Offline support
+Deployment
