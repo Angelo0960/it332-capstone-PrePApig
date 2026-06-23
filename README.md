@@ -310,3 +310,47 @@ npm install multer
 npm install firebase-admin
 npm install node-cron
 
+frontend/
+│
+├── public/                         # Static files
+│
+├── src/
+│   │
+│   ├── assets/                     # Images, icons, fonts
+│   ├── components/                 # Reusable UI components
+│   ├── pages/                      # Page components
+│   ├── hooks/                      # Custom React hooks
+│   ├── contexts/                   # Context providers
+│   ├── services/                   # API communication
+│   ├── utils/                      # Helper functions
+│   ├── routes/                     # Route configuration
+│   │
+│   ├── App.jsx                     # Root component
+│   └── main.jsx                    # Entry point
+│
+├── .env                            # Environment variables
+├── .gitignore                      # Git ignore rules
+├── package.json                    # Dependencies
+└── README.md                       # Frontend documentation
+
+
+backend/
+│
+├── src/
+│   │
+│   ├── config/                     # Database & Firebase configuration
+│   ├── controllers/                # Route controllers
+│   ├── models/                     # Database models
+│   ├── routes/                     # API routes
+│   ├── middleware/                 # Authentication & validation
+│   ├── services/                   # Business logic
+│   ├── utils/                      # Helper functions
+│   ├── jobs/                       # Scheduled reminder tasks
+│   │
+│   └── app.js                      # Express application setup
+│
+├── .env                            # Environment variables
+├── .gitignore                      # Git ignore rules
+├── package.json                    # Dependencies
+├── README.md                       # Backend documentation
+└── server.js                       # Entry point
