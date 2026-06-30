@@ -9,6 +9,12 @@ pigBatchRouter.post('/create', pigBatchController.createBatch);
 // Get All Batches
 pigBatchRouter.get('/all', pigBatchController.getAllBatches);
 
+pigBatchRouter.get('/:id', pigBatchController.getBatchById);
 
+// Update Batch
+pigBatchRouter.put('/:id', pigBatchController.updateBatch);
+
+pigBatchRouter.delete('/:id', pigBatchController.deleteBatch);
 
 export default pigBatchRouter;
+
