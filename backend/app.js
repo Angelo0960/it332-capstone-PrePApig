@@ -2,6 +2,7 @@ import express from 'express';
 import 'dotenv/config.js';
 import authRouter from './routes/authRoutes.js';
 import pigBatchRouter from './routes/pigRoutes.js';
+import feedRouter from './routes/feedRoutes.js';
 
 //initialize express app
 const app = express();
@@ -20,6 +21,7 @@ app.listen(process.env.PORT || 5000, () => {
 
 app.use  ('/auth', authRouter)
 app.use  ('/pigs', pigBatchRouter)
+app.use  ('/feeds', feedRouter)
 
 //req cons
 app.use((req, res, next) => {

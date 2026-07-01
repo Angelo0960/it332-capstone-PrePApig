@@ -20,3 +20,14 @@ CREATE TABLE pig_batches (
     status VARCHAR(20) DEFAULT 'Active',
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE feed_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id UUID REFERENCES pig_batches(id) ON DELETE CASCADE,
+    feed_type VARCHAR(100) NOT NULL,
+    quantity_kg DECIMAL(10,2) NOT NULL,
+    feeding_date DATE NOT NULL,
+    feeding_time VARCHAR(20),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
