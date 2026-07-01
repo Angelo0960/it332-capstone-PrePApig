@@ -16,5 +16,13 @@ pigBatchRouter.put('/:id', pigBatchController.updateBatch);
 
 pigBatchRouter.delete('/:id', pigBatchController.deleteBatch);
 
+feedRouter.get('/batch/:batchId', feedController.getFeedByBatch);
+
+// Feed Records
+feedRouter.get('/:id', feedController.getFeedRecordById);
+
+feedRouter.put('/:id', feedController.updateFeedRecord);
+
 export default pigBatchRouter;
+
 
