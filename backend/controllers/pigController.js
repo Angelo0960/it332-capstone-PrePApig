@@ -155,3 +155,82 @@ export const deleteBatch = async (req, res) => {
     });
   }
 };
+
+// FEED RECORDS 
+export const getFeedRecordById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data, error } = await supabase
+            .from('feed_records')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// VIEW BY BATCH
+export const getFeedByBatch = async (req, res) => {
+    try {
+        const { batchId } = req.params;
+
+        const { data, error } = await supabase
+            .from('feed_records')
+            .select('*')
+            .eq('batch_id', batchId);
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            count: data.length,
+            data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// UPDATE
+export const updateFeedRecord = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data, error } = await supabase
+            .from('feed_records')
+            .update(req.body)
+            .eq('id', id)
+            .select();
+
+        if (error) throw error;
+
+        res.status(200).json({
+            success: true,
+            message: 'Feed record updated successfully',
+            data
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
