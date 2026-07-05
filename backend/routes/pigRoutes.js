@@ -15,13 +15,13 @@ pigBatchRouter.get('/:id', pigBatchController.getBatchById);
 pigBatchRouter.put('/:id', pigBatchController.updateBatch);
 
 pigBatchRouter.delete('/:id', pigBatchController.deleteBatch);
+// Get Active Batches
+pigBatchRouter.get('/active', pigBatchController.getActiveBatches);
+// Update Weight Only
+pigBatchRouter.patch('/:id/weight', pigBatchController.updateWeight);
+// Get Summary
+pigBatchRouter.get('/summary', pigBatchController.getBatchSummary);
 
-feedRouter.get('/batch/:batchId', feedController.getFeedByBatch);
-
-// Feed Records
-feedRouter.get('/:id', feedController.getFeedRecordById);
-
-feedRouter.put('/:id', feedController.updateFeedRecord);
 
 export default pigBatchRouter;
 

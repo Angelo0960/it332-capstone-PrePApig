@@ -156,81 +156,86 @@ export const deleteBatch = async (req, res) => {
   }
 };
 
-// FEED RECORDS 
-export const getFeedRecordById = async (req, res) => {
-    try {
-        const { id } = req.params;
+export const getActiveBatches = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('pig_batches')
+      .select('*')
+      .eq('status', 'Active');
 
-        const { data, error } = await supabase
-            .from('feed_records')
-            .select('*')
-            .eq('id', id)
-            .single();
+    if (error) throw error;
 
-        if (error) throw error;
-
-        res.status(200).json({
-            success: true,
-            data
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
+    res.status(200).json({
+      success: true,
+      count: data.length,
+      data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// VIEW BY BATCH
-export const getFeedByBatch = async (req, res) => {
-    try {
-        const { batchId } = req.params;
+// UPDATE WEIGHT
+export const updateWeight = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { current_weight } = req.body;
 
-        const { data, error } = await supabase
-            .from('feed_records')
-            .select('*')
-            .eq('batch_id', batchId);
+    const { data, error } = await supabase
+      .from('pig_batches')
+      .update({ current_weight })
+      .eq('id', id)
+      .select();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.status(200).json({
-            success: true,
-            count: data.length,
-            data
-        });
-
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
+    res.status(200).json({
+      success: true,
+      message: 'Weight updated successfully',
+      data
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// UPDATE
-export const updateFeedRecord = async (req, res) => {
-    try {
-        const { id } = req.params;
+// BATCH SUMMARY
+export const getBatchSummary = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('pig_batches')
+      .select('*');
 
-        const { data, error } = await supabase
-            .from('feed_records')
-            .update(req.body)
-            .eq('id', id)
-            .select();
+    if (error) throw error;
 
-        if (error) throw error;
+    const totalBatches = data.length;
+    const totalPigs = data.reduce(
+      (sum, batch) => sum + Number(batch.pig_count),
+      0
+    );
 
-        res.status(200).json({
-            success: true,
-            message: 'Feed record updated successfully',
-            data
-        });
+    const activeBatches = data.filter(
+      batch => batch.status === 'Active'
+    ).length;
 
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: error.message
-        });
-    }
+    res.status(200).json({
+      success: true,
+      summary: {
+        totalBatches,
+        totalPigs,
+        activeBatches
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
