@@ -31,3 +31,16 @@ CREATE TABLE feed_records (
     notes TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE vaccination_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id UUID REFERENCES pig_batches(id) ON DELETE CASCADE,
+    vaccine_name VARCHAR(100) NOT NULL,
+    vaccination_date DATE NOT NULL,
+    next_due_date DATE,
+    administered_by VARCHAR(100),
+    dosage VARCHAR(50),
+    notes TEXT,
+    status VARCHAR(20) DEFAULT 'Completed',
+    created_at TIMESTAMP DEFAULT NOW()
+);
