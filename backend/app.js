@@ -4,6 +4,7 @@ import authRouter from './routes/authRoutes.js';
 import pigBatchRouter from './routes/pigRoutes.js';
 import feedRouter from './routes/feedRoutes.js';
 import vaccinationRouter from './routes/vaccineRoutes.js';
+import expensesRouter from './routes/expensesRoutes.js';
 
 //initialize express app
 const app = express();
@@ -24,7 +25,7 @@ app.use  ('/auth', authRouter)
 app.use  ('/pigs', pigBatchRouter)
 app.use  ('/feeds', feedRouter)
 app.use  ('/vaccinations', vaccinationRouter)
-
+app.use  ('/expenses', expensesRouter)
 //req cons
 app.use((req, res, next) => {
   console.log(req.path, req.method);
