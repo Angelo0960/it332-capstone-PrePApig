@@ -44,3 +44,13 @@ CREATE TABLE vaccination_records (
     status VARCHAR(20) DEFAULT 'Completed',
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE expenses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    batch_id UUID REFERENCES pig_batches(id) ON DELETE SET NULL,
+    expense_type VARCHAR(100) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    expense_date DATE NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
