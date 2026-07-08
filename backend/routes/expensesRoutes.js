@@ -9,4 +9,10 @@ expensesRouter.get('/all', expenseController.getAllExpenses);
 
 expensesRouter.get('/:id', expenseController.getExpenseById);
 
+expensesRouter.put('/:id', expenseController.updateExpense);
+
+expensesRouter.delete('/:id', expenseController.deleteExpense);
+
+expensesRouter.get('/summary', expenseController.getExpenseSummary);
+
 export default expensesRouter;
