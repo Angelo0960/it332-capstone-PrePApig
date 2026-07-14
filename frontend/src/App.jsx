@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { LoginScreen } from './pages/LoginPage.jsx';
+import {LoginScreen} from './pages/LoginPage.jsx'; 
+import {DashboardScreen} from './pages/DashboardScreen.jsx'; 
 import './App.css';
 
 function App() {
@@ -7,17 +8,17 @@ function App() {
 
   const handleLoginSuccess = () => {
     setIsLoggedIn(true);
-    // Optionally navigate to dashboard using react-router
   };
 
   return (
-    <>
+    // Ensure the container takes full viewport height
+    <div className="h-screen w-full">
       {isLoggedIn ? (
-        <div>Dashboard (replace with your dashboard component)</div>
+        <DashboardScreen />
       ) : (
         <LoginScreen onLogin={handleLoginSuccess} />
       )}
-    </>
+    </div>
   );
 }
 
