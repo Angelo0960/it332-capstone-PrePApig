@@ -4,6 +4,7 @@ import LoginScreen from './pages/LoginPage.jsx';
 import DashboardScreen from './pages/DashboardScreen.jsx';
 import FeedsInventoryScreen from './pages/FeedsInventoryScreen.jsx';
 import AnalyticsReportsScreen from './pages/AnalyticsReportScreen.jsx';
+import VaccinationScreen from './pages/VaccinationScreen.jsx';
 
 import './App.css';
 
@@ -50,6 +51,15 @@ function App() {
           element={
             <ProtectedRoute>
               <AnalyticsReportsScreen />
+            </ProtectedRoute>
+          }
+        
+        ></Route>
+        <Route
+          path="/vaccination"
+          element={
+            <ProtectedRoute>
+              <VaccinationScreen />
             </ProtectedRoute>
           }
         
