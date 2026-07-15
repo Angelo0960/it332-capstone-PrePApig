@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { User, Lock } from "lucide-react";
-import { api } from '../api.js'; // adjust path
-import pigImage from "../../src/assets/Gemini_Generated_Image_92oun292oun292ou.png";
+import { api } from '../api.js';
+import pigImage from "../../src/assets/2e388bda-a6fa-4911-bcea-0e3aaa26ed7f-removebg-preview.png";
 import backgroundImage from "../../src/assets/Gemini_Generated_Image_o4e5bbo4e5bbo4e5.png";
 
 export function LoginScreen({ onLogin }) {
@@ -16,10 +16,8 @@ export function LoginScreen({ onLogin }) {
     setError('');
     try {
       const data = await api.login(farmerId, password);
-      // Store token (if using JWT) – e.g., localStorage
       localStorage.setItem('token', data.token);
-      // optionally store user info
-      onLogin(); // parent can update auth state
+      onLogin();
     } catch (err) {
       setError(err.message || 'Invalid credentials');
     } finally {
@@ -34,7 +32,7 @@ export function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div className="h-full w-full relative overflow-hidden">
+    <div className="min-h-screen w-full relative overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0">
         <img
@@ -44,12 +42,12 @@ export function LoginScreen({ onLogin }) {
         />
       </div>
 
-      {/* Grid layout: title row auto, content row fills remaining space */}
-      <div className="relative z-10 h-full grid grid-rows-[auto_1fr] gap-y-75 px-6 pb-12 pt-25">
-        {/* Title row - takes only as much height as needed */}
+      {/* Grid layout – full viewport, no bottom padding */}
+      <div className="relative z-10 min-h-screen grid grid-rows-[auto_1fr] gap-y-4 sm:gap-y-6 lg:gap-y-8 px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-25">
+        {/* Title row */}
         <div className="text-center">
           <h1
-            className="text-5xl font-extrabold"
+            className="text-4xl sm:text-5xl lg:text-6xl font-extrabold"
             style={{
               fontFamily: "'Erica One', cursive",
             }}
@@ -59,57 +57,64 @@ export function LoginScreen({ onLogin }) {
           </h1>
         </div>
 
-        {/* Content row - fills remaining height and centers pig+card vertically */}
-        <div className="flex items-center justify-center">
-          <div className="relative w-full max-w-[340px]">
-            {/* 3D Pig Asset - Overlapping the card */}
-            <div className="relative z-0 mx-auto -mb-49 pointer-events-none">
-              <img
-                src={pigImage}
-                alt="Pig Character"
-                className="drop-shadow-xl origin-bottom"
+        {/* Content row – centered vertically and horizontally */}
+        <div className="flex flex-col items-center justify-center">
+          {/* Pig centered above the card */}
+          <div className="relative z-0 mx-auto -mb-57 sm:-mb-8 lg:-mb-10 pointer-events-none">
+            <img
+              src={pigImage}
+              alt="Pig Character"
+              className="drop-shadow-xl origin-bottom scale-[1.2] sm:scale-[1.5] lg:scale-[1.8]"
+              style={{
+                filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.12))",
+              }}
+            />
+          </div>
+
+          {/* Glassmorphic Panel – adjusted top padding */}
+          <div
+            className="relative z-10 w-full max-w-[340px] pt-8 sm:pt-10 lg:pt-12 pb-6 sm:pb-7 lg:pb-8 px-6 sm:px-7 lg:px-8"
+            style={{
+              backgroundColor: "rgba(255, 255, 255, 0.3)",
+              backdropFilter: "blur(40px)",
+              borderRadius: "48px",
+              border: "1.5px solid rgba(255, 255, 255, 0.5)",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.05)",
+            }}
+          >
+            {/* Login Title */}
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <div className="h-px w-8 bg-[#E91E63]/30" />
+              <h2
+                className="text-2xl font-bold tracking-wide"
                 style={{
-                  transform: "scale(2.2)",
-                  filter: "drop-shadow(0 8px 16px rgba(0,0,0,0.12))",
+                  fontFamily: "'Erica One', cursive",
+                  color: "#E91E63",
                 }}
-              />
+              >
+                Login
+              </h2>
+              <div className="h-px w-8 bg-[#E91E63]/30" />
             </div>
 
-            {/* Glassmorphic Panel - Corner Radius 48px */}
-            <div
-              className="relative z-10 pt-28 pb-8 px-8"
-              style={{
-                backgroundColor: "rgba(255, 255, 255, 0.3)",
-                backdropFilter: "blur(40px)",
-                borderRadius: "48px",
-                border: "1.5px solid rgba(255, 255, 255, 0.5)",
-                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.05)",
-              }}
-            >
-              {/* Login Title */}
-              <div className="flex items-center justify-center gap-2 mb-6 -mt-20">
-                <div className="h-px w-8 bg-[#E91E63]/30" />
-                <h2
-                  className="text-2xl font-bold tracking-wide"
-                  style={{
-                    fontFamily: "'Erica One', cursive",
-                    color: "#E91E63",
-                  }}
+            <div className="space-y-4">
+              {/* Farmer ID Field */}
+              <div>
+                <label
+                  htmlFor="farmerId"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                  style={{ fontFamily: "'Erica One', cursive" }}
                 >
-                  Login
-                </h2>
-                <div className="h-px w-8 bg-[#E91E63]/30" />
-              </div>
-
-              <div className="space-y-4">
-                {/* Farmer ID Input */}
+                  Farmer ID
+                </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
                     <User className="w-5 h-5 text-[#E91E63]" />
                   </div>
                   <input
+                    id="farmerId"
                     type="text"
-                    placeholder="Farmer ID"
+                    placeholder="Enter your Farmer ID"
                     value={farmerId}
                     onChange={(e) => setFarmerId(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -121,15 +126,25 @@ export function LoginScreen({ onLogin }) {
                     }}
                   />
                 </div>
+              </div>
 
-                {/* Access Key Input */}
+              {/* Access Key Field */}
+              <div>
+                <label
+                  htmlFor="accessKey"
+                  className="block text-sm font-medium text-gray-700 mb-1.5"
+                  style={{ fontFamily: "'Erica One', cursive" }}
+                >
+                  Access Key
+                </label>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
                     <Lock className="w-5 h-5 text-[#E91E63]" />
                   </div>
                   <input
+                    id="accessKey"
                     type="password"
-                    placeholder="Access Key ••••••"
+                    placeholder="••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     onKeyPress={handleKeyPress}
@@ -141,28 +156,26 @@ export function LoginScreen({ onLogin }) {
                     }}
                   />
                 </div>
-
-                {/* 3D Claymorphic Button */}
-                <button
-                  onClick={handleLogin}
-                  className="w-full py-4 text-white font-bold uppercase tracking-wide relative active:translate-y-1 transition-transform mt-2"
-                  style={{
-                    backgroundColor: "#E91E63",
-                    borderRadius: "20px",
-                    boxShadow: "0 8px 0 #AD1457",
-                  }}
-                >
-                  START TRACKING
-                </button>
               </div>
+
+              {/* Button */}
+              <button
+                onClick={handleLogin}
+                className="w-full py-4 text-white font-bold uppercase tracking-wide relative active:translate-y-1 transition-transform mt-2"
+                style={{
+                  backgroundColor: "#E91E63",
+                  borderRadius: "20px",
+                  boxShadow: "0 8px 0 #AD1457",
+                }}
+              >
+                START TRACKING
+              </button>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Home Indicator */}
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-black/20 rounded-full z-20"></div>
     </div>
   );
 }
+
 export default LoginScreen;

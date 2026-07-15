@@ -57,17 +57,17 @@ export default function AnalyticsReportsScreen() {
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
 
   return (
-    <div className="h-full flex flex-col relative">
+    <div className="min-h-screen w-full relative overflow-hidden flex flex-col">
       {/* Background Image */}
       <div className="absolute inset-0">
         <img src={backgroundImage} alt="Farm Background" className="w-full h-full object-cover" />
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col h-full">
+      <div className="relative z-10 flex flex-col flex-1 min-h-screen">
         {/* Status Bar */}
         <div className="px-4 md:px-8 lg:px-12 pt-3 pb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold">10:09</div>
+         
         </div>
 
         {/* Header */}
@@ -389,7 +389,7 @@ export default function AnalyticsReportsScreen() {
         </div>
 
         {/* Bottom Navigation - Fixed */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white/20 backdrop-blur-xl border-t border-white/30 px-4 md:px-8 lg:px-12 py-3 shadow-2xl">
+        <div className="fixed bottom-0 left-0 right-0 bg-white/20 backdrop-blur-xl border-t border-white/30 px-4 md:px-8 lg:px-12 py-3 shadow-2xl z-50">
           <div className="flex items-center justify-around md:justify-center md:gap-8 lg:gap-16">
             <button onClick={() => navigate('/dashboard')} className="flex flex-col items-center gap-1">
               <div className="w-12 h-12 bg-white/40 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-[6px_6px_12px_rgba(0,0,0,0.1),-6px_-6px_12px_rgba(255,255,255,0.8)] active:shadow-[inset_3px_3px_6px_rgba(0,0,0,0.1),inset_-3px_-3px_6px_rgba(255,255,255,0.8)] transition-all">
@@ -420,11 +420,7 @@ export default function AnalyticsReportsScreen() {
             </button>
           </div>
         </div>
-
-        {/* Home Indicator */}
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-black/30 rounded-full"></div>
       </div>
     </div>
   );
 }
-
