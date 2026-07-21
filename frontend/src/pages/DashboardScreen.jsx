@@ -101,7 +101,7 @@ export default function DashboardScreen() {
     { type: 'Finisher', stock: 120 },
   ];
 
-  // Helper functions for feed scheduling
+  // Helper functions for feed scheduling (unchanged)
   const getFeedTypeForAge = (day) => {
     if (day <= 21) return 'starter';
     if (day <= 49) return 'grower';
@@ -119,7 +119,7 @@ export default function DashboardScreen() {
     return null;
   };
 
-  // Vaccination scheduling
+  // Vaccination scheduling (unchanged)
   const vaccinationSchedule = [
     { vaccine: 'Swine Fever', minDay: 7, maxDay: 10 },
     { vaccine: 'E. Coli', minDay: 14, maxDay: 21 },
