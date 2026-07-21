@@ -33,10 +33,6 @@ const isVaccinationDue = (day, vaccine) => {
 const isVaccinationOverdue = (day, vaccine) => {
   return day > vaccine.maxDay;
 };
-const getDaysUntilVaccination = (day, vaccine) => {
-  if (day < vaccine.minDay) return vaccine.minDay - day;
-  return 0;
-};
 
 // Mock data fallback
 const MOCK_BATCHES = [
@@ -46,21 +42,48 @@ const MOCK_BATCHES = [
 ];
 
 const MOCK_RECORDS = [
-  { id: '1', batch_id: 'A', batch_name: 'Batch A', vaccine_name: 'Swine Fever', dosage: 12, vaccination_date: '2026-05-10', notes: 'Booster shot' },
-  { id: '2', batch_id: 'B', batch_name: 'Batch B', vaccine_name: 'E. Coli', dosage: 8, vaccination_date: '2026-05-05', notes: '' },
-  { id: '3', batch_id: 'A', batch_name: 'Batch A', vaccine_name: 'PRRS', dosage: 12, vaccination_date: '2026-04-28', notes: '' },
+  {
+    id: '1',
+    batch_id: 'A',
+    batch_name: 'Batch A',
+    vaccine_name: 'Swine Fever',
+    dosage: 12,
+    vaccination_date: '2026-05-10',
+    notes: 'Booster shot',
+  },
+  {
+    id: '2',
+    batch_id: 'B',
+    batch_name: 'Batch B',
+    vaccine_name: 'E. Coli',
+    dosage: 8,
+    vaccination_date: '2026-05-05',
+    notes: '',
+  },
+  {
+    id: '3',
+    batch_id: 'A',
+    batch_name: 'Batch A',
+    vaccine_name: 'PRRS',
+    dosage: 12,
+    vaccination_date: '2026-04-28',
+    notes: '',
+  },
 ];
 
-// API base URL - update this to match your backend
-const API_BASE = 'http://localhost:5000';
+// Default vaccine prices (fallback if stock not available)
+const DEFAULT_PRICES = {
+  'Swine Fever': 45.0,
+  'E. Coli': 38.5,
+  'PRRS': 52.0,
+  'Porcine Circovirus': 48.0,
+};
 
-// Auth helper
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+// Map select value to vaccine name
+const VACCINE_NAME_MAP = {
+  'swine-fever': 'Swine Fever',
+  ecoli: 'E. Coli',
+  prrs: 'PRRS',
 };
 
 export default function VaccinationScreen() {
