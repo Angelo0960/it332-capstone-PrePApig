@@ -1,7 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Cloud, CloudOff, Syringe, DollarSign, TrendingUp, Home, Package, X, AlertTriangle, Calendar, Check } from 'lucide-react';
-import backgroundImage from "../../src/assets/Gemini_Generated_Image_o4e5bbo4e5bbo4e5.png";
+import {
+  ArrowLeft,
+  Cloud,
+  CloudOff,
+  Syringe,
+  DollarSign,
+  TrendingUp,
+  Home,
+  Package,
+  X,
+  AlertTriangle,
+  Calendar,
+  Check,
+} from 'lucide-react';
+import backgroundImage from '../../src/assets/Gemini_Generated_Image_o4e5bbo4e5bbo4e5.png';
+import BottomNav from '../components/BottomNav';
+import { API_BASE, getAuthHeaders } from '../api.js';
 
 // Standard vaccination schedule by age
 const vaccinationSchedule = [
@@ -12,15 +27,6 @@ const vaccinationSchedule = [
 ];
 
 // Helpers
-const getNextVaccination = (day) => {
-  for (const vax of vaccinationSchedule) {
-    if (day < vax.maxDay) return vax;
-  }
-  return null;
-};
-const getCompletedVaccinations = (day) => {
-  return vaccinationSchedule.filter(vax => day > vax.maxDay);
-};
 const isVaccinationDue = (day, vaccine) => {
   return day >= vaccine.minDay && day <= vaccine.maxDay;
 };
@@ -68,10 +74,12 @@ export default function VaccinationScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [useMock, setUseMock] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Data
   const [vaccinationRecords, setVaccinationRecords] = useState(MOCK_RECORDS);
   const [batches, setBatches] = useState(MOCK_BATCHES);
+  const [vaccineStock, setVaccineStock] = useState([]);
 
   // Form states
   const [vaccinationForm, setVaccinationForm] = useState({
@@ -96,7 +104,30 @@ export default function VaccinationScreen() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.success && json.data.length > 0) {
-        setBatches(json.data);
+        const mapped = json.data.map((batch) => {
+          let day = 0;
+          if (batch.date_acquired) {
+            const acquired = new Date(batch.date_acquired);
+            const now = new Date();
+            day = Math.max(0, Math.floor((now - acquired) / (1000 * 60 * 60 * 24)));
+          } else if (batch.created_at) {
+            const created = new Date(batch.created_at);
+            const now = new Date();
+            day = Math.max(0, Math.floor((now - created) / (1000 * 60 * 60 * 24)));
+          }
+          return {
+            id: batch.id,
+            name: batch.batch_code || `Batch ${batch.id}`,
+            day: day,
+            pigCount: batch.pig_count || 0,
+            breed: batch.breed,
+            startWeight: batch.start_weight,
+            currentWeight: batch.current_weight,
+            dateAcquired: batch.date_acquired,
+            status: batch.status,
+          };
+        });
+        setBatches(mapped);
         setUseMock(false);
       } else {
         throw new Error('No batches found');
@@ -120,36 +151,51 @@ export default function VaccinationScreen() {
       const res = await fetch(url, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      if (json.success && json.data.length > 0) {
-        setVaccinationRecords(json.data);
+      if (json.success) {
+        setVaccinationRecords(json.data || []);
         setUseMock(false);
       } else {
-        throw new Error('No records found');
+        throw new Error(json.message || 'No records');
       }
     } catch (err) {
       console.warn('Using mock records:', err.message);
       setUseMock(true);
-      // Filter mock records by selected batch
       if (selectedBatch === 'all') {
         setVaccinationRecords(MOCK_RECORDS);
       } else {
-        setVaccinationRecords(MOCK_RECORDS.filter(r => r.batch_id === selectedBatch));
+        setVaccinationRecords(MOCK_RECORDS.filter((r) => r.batch_id === selectedBatch));
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch vaccine stock
+  const fetchVaccineStock = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/vaccinations/stock`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch stock');
+      const json = await res.json();
+      if (json.success) {
+        setVaccineStock(json.data || []);
+      }
+    } catch (err) {
+      console.warn('Could not fetch vaccine stock:', err.message);
+      setVaccineStock([]);
+    }
+  };
+
   // Load data
   useEffect(() => {
     fetchBatches();
+    fetchVaccineStock();
   }, []);
 
   useEffect(() => {
     fetchVaccinations();
-  }, [selectedBatch]);
+  }, [selectedBatch, refreshKey]);
 
-  // Save vaccination
+  // Save vaccination (used by both modal and direct marking)
   const handleSaveVaccination = async (formData) => {
     try {
       const res = await fetch(`${API_BASE}/vaccinations/create`, {
@@ -157,91 +203,177 @@ export default function VaccinationScreen() {
         headers: getAuthHeaders(),
         body: JSON.stringify(formData),
       });
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Failed to save: ${errorText}`);
+      }
       const json = await res.json();
       if (json.success) {
-        await fetchVaccinations();
+        setRefreshKey((prev) => prev + 1);
         setShowRecordVaccination(false);
-        setVaccinationForm({ batch: '', vaccineType: '', doses: '', date: new Date().toISOString().split('T')[0], notes: '' });
+        setVaccinationForm({
+          batch: '',
+          vaccineType: '',
+          doses: '',
+          date: new Date().toISOString().split('T')[0],
+          notes: '',
+        });
+        fetchVaccineStock();
+        return true;
       } else {
         throw new Error(json.message || 'Unknown error');
       }
     } catch (err) {
-      alert('Error saving: ' + err.message);
+      alert('Error saving vaccination: ' + err.message);
+      return false;
     }
   };
 
+  // Direct "Mark as Done" – no modal
+  const handleDirectMarkAsDone = (batchId, vaccineName, doses) => {
+    const payload = {
+      batch_id: batchId,
+      vaccine_name: vaccineName,
+      vaccination_date: new Date().toISOString().split('T')[0],
+      dosage: parseInt(doses, 10) || 0,
+      notes: 'Marked as done via schedule',
+      next_due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      administered_by: 'Farmer',
+      status: 'Completed',
+    };
+    handleSaveVaccination(payload);
+  };
+
+  // Modal submit
   const handleFormSubmit = () => {
     if (!vaccinationForm.batch || !vaccinationForm.vaccineType || !vaccinationForm.doses) return;
     const payload = {
       batch_id: vaccinationForm.batch,
       vaccine_name: vaccinationForm.vaccineType,
       vaccination_date: vaccinationForm.date,
-      dosage: parseInt(vaccinationForm.doses),
+      dosage: parseInt(vaccinationForm.doses, 10) || 0,
       notes: vaccinationForm.notes,
-      next_due_date: new Date(new Date(vaccinationForm.date).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      next_due_date: new Date(new Date(vaccinationForm.date).getTime() + 30 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0],
       administered_by: 'Farmer',
-      status: 'completed',
+      status: 'Completed',
     };
     handleSaveVaccination(payload);
   };
 
-  // Computed
+  // Restock vaccine
+  const handleRestock = async () => {
+    const vaccineName = VACCINE_NAME_MAP[restockForm.vaccineType];
+    if (!vaccineName) {
+      alert('Please select a vaccine type');
+      return;
+    }
+    const doses = parseInt(restockForm.doses, 10) || 0;
+    if (doses <= 0) {
+      alert('Please enter a valid number of doses');
+      return;
+    }
+    const price = parseFloat(restockForm.cost) || 0;
+    try {
+      const res = await fetch(`${API_BASE}/vaccinations/stock/update`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          vaccine_name: vaccineName,
+          stock_quantity: doses,
+          expiry_date: restockForm.expiryDate || null,
+          price_per_dose: price,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to restock');
+      const json = await res.json();
+      if (json.success) {
+        alert('Stock updated successfully!');
+        setShowRestockVaccine(false);
+        setRestockForm({
+          vaccineType: '',
+          doses: '',
+          cost: '',
+          expiryDate: '',
+          purchaseDate: new Date().toISOString().split('T')[0],
+        });
+        fetchVaccineStock();
+      } else {
+        throw new Error(json.message || 'Unknown error');
+      }
+    } catch (err) {
+      alert('Error restocking: ' + err.message);
+    }
+  };
+
+  // Computed – safe parsing
   const getBatchName = (batchId) => {
-    const batch = batches.find(b => b.id === batchId);
+    const batch = batches.find((b) => b.id === batchId);
     return batch ? batch.name : 'Unknown';
   };
 
+  const getVaccinePrice = (name) => {
+    if (!name) return 0;
+    const trimmed = name.trim();
+    const stock = vaccineStock.find((s) => s.vaccine_name?.trim() === trimmed);
+    if (stock && typeof stock.price_per_dose === 'number' && !isNaN(stock.price_per_dose)) {
+      return stock.price_per_dose;
+    }
+    return DEFAULT_PRICES[trimmed] || 0;
+  };
+
   const calculateBatchVaccinationExpense = (batchId) => {
-    const filtered = batchId === 'all'
-      ? vaccinationRecords
-      : vaccinationRecords.filter(r => r.batch_id === batchId);
-    const vaccinePrices = {
-      'Swine Fever': 45.00,
-      'E. Coli': 38.50,
-      'PRRS': 52.00,
-      'Porcine Circovirus': 48.00,
-    };
+    const filtered =
+      batchId === 'all'
+        ? vaccinationRecords
+        : vaccinationRecords.filter((r) => r.batch_id === batchId);
     return filtered.reduce((total, rec) => {
-      const price = vaccinePrices[rec.vaccine_name] || 0;
-      return total + (rec.dosage || 0) * price;
+      const dosage = Number(rec.dosage);
+      const price = getVaccinePrice(rec.vaccine_name);
+      const validDosage = isNaN(dosage) ? 0 : dosage;
+      return total + validDosage * price;
     }, 0);
   };
 
-  const selectedBatchData = batches.find(b => b.id === selectedBatch);
+  const selectedBatchData = batches.find((b) => b.id === selectedBatch);
   const batchExpense = calculateBatchVaccinationExpense(selectedBatch);
   const filteredRecords = vaccinationRecords;
   const scheduleBatches = batches.length > 0 ? batches : MOCK_BATCHES;
 
+  const totalDoses = vaccinationRecords.reduce((sum, r) => {
+    const dosage = Number(r.dosage);
+    return sum + (isNaN(dosage) ? 0 : dosage);
+  }, 0);
+
+  const uniqueVaccines = new Set(
+    vaccinationRecords.map((r) => r.vaccine_name?.trim()).filter(Boolean)
+  ).size;
+
   return (
     <div className="min-h-screen w-full relative overflow-hidden flex flex-col">
-      {/* Background */}
       <div className="absolute inset-0">
         <img src={backgroundImage} alt="Farm Background" className="w-full h-full object-cover" />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 flex flex-col flex-1 min-h-screen">
-        {/* Status Bar */}
-        <div className="px-4 md:px-8 lg:px-12 pt-3 pb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold">10:09</div>
-          {useMock && (
-            <span className="text-xs text-yellow-600 bg-yellow-100/80 px-2 py-0.5 rounded-full">Offline Mode</span>
-          )}
-        </div>
-
         {/* Header */}
-        <div className="px-4 md:px-8 lg:px-12 pt-2 pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => navigate('/dashboard')}
-                className="w-8 h-8 rounded-full bg-white/30 backdrop-blur-lg flex items-center justify-center shadow-[4px_4px_8px_rgba(0,0,0,0.15),-4px_-4px_8px_rgba(255,255,255,0.7)] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.15),inset_-2px_-2px_4px_rgba(255,255,255,0.7)] transition-all"
-              >
-                <ArrowLeft className="w-4 h-4 text-gray-700" />
-              </button>
-              <h1 className="text-xl font-bold text-gray-900">Vaccination Manager</h1>
-            </div>
+        <div className="px-4 md:px-8 lg:px-12 pt-3 pb-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-8 h-8 rounded-full bg-white/30 backdrop-blur-lg flex items-center justify-center shadow-[4px_4px_8px_rgba(0,0,0,0.15),-4px_-4px_8px_rgba(255,255,255,0.7)] active:shadow-[inset_2px_2px_4px_rgba(0,0,0,0.15),inset_-2px_-2px_4px_rgba(255,255,255,0.7)] transition-all"
+            >
+              <ArrowLeft className="w-4 h-4 text-gray-700" />
+            </button>
+            <h1 className="text-xl font-bold text-gray-900">Vaccination Manager</h1>
+          </div>
+          <div className="flex items-center gap-2">
+            {useMock && (
+              <span className="text-xs text-yellow-600 bg-yellow-100/80 px-2 py-0.5 rounded-full">
+                Offline Mode
+              </span>
+            )}
             <div className="relative">
               {isOnline ? (
                 <Cloud className="w-5 h-5 text-green-600" />
@@ -297,7 +429,9 @@ export default function VaccinationScreen() {
           ) : error ? (
             <div className="bg-red-100/20 border border-red-300/50 rounded-xl p-4 text-red-700">
               <p>Error: {error}</p>
-              <button onClick={fetchVaccinations} className="mt-2 underline">Retry</button>
+              <button onClick={fetchVaccinations} className="mt-2 underline">
+                Retry
+              </button>
             </div>
           ) : (
             <>
@@ -308,16 +442,24 @@ export default function VaccinationScreen() {
                     <div className="w-8 h-8 bg-blue-100/80 rounded-lg flex items-center justify-center">
                       <Syringe className="w-4 h-4 text-blue-600" />
                     </div>
-                    <div className="text-xs text-gray-700 font-semibold">Vaccine Stock</div>
+                    <div className="text-xs text-gray-700 font-semibold">
+                      Total Vaccines Administered
+                    </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-900 mb-1">
-                    {vaccinationRecords.reduce((sum, r) => sum + (r.dosage || 0), 0)} doses
+                    {isNaN(totalDoses) ? 0 : totalDoses} doses
                   </div>
-                  <div className="text-xs text-gray-600">Across {new Set(vaccinationRecords.map(r => r.vaccine_name)).size} types</div>
+                  <div className="text-xs text-gray-600">Across {uniqueVaccines} vaccine types</div>
                   <div className="mt-2">
-                    <span className="px-2 py-1 bg-orange-100/80 border border-orange-300/50 rounded-full text-xs text-orange-700 font-semibold">
-                      Low stock
-                    </span>
+                    {totalDoses === 0 ? (
+                      <span className="px-2 py-1 bg-gray-100/80 border border-gray-300/50 rounded-full text-xs text-gray-700 font-semibold">
+                        No records
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-green-100/80 border border-green-300/50 rounded-full text-xs text-green-700 font-semibold">
+                        {totalDoses} doses
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -330,9 +472,16 @@ export default function VaccinationScreen() {
                       {selectedBatch === 'all' ? 'All Batches' : selectedBatchData?.name || 'Unknown'}
                     </div>
                   </div>
-                  <div className="text-2xl font-bold text-gray-900 mb-1">₱{batchExpense.toLocaleString('en-PH', { maximumFractionDigits: 0 })}</div>
+                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                    ₱
+                    {isNaN(batchExpense)
+                      ? 0
+                      : batchExpense.toLocaleString('en-PH', { maximumFractionDigits: 0 })}
+                  </div>
                   <div className="text-xs text-gray-600">
-                    {selectedBatch === 'all' ? 'Total vaccination expenses' : 'Vaccination expenses for this batch'}
+                    {selectedBatch === 'all'
+                      ? 'Total vaccination expenses'
+                      : 'Vaccination expenses for this batch'}
                   </div>
                 </div>
               </div>
@@ -343,27 +492,50 @@ export default function VaccinationScreen() {
                   <h3 className="font-semibold text-gray-900">Vaccine Stock</h3>
                 </div>
                 <div className="divide-y divide-white/20">
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-gray-900">Swine Fever</div>
-                      <span className="px-3 py-1 bg-green-100/80 border border-green-300/50 rounded-full text-xs text-green-700 font-semibold">OK</span>
+                  {vaccineStock.length === 0 ? (
+                    <div className="p-4 text-center text-gray-500 text-sm">
+                      No stock data available
                     </div>
-                    <div className="text-xs text-gray-600">48 doses · Exp: Dec 15, 2026</div>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-gray-900">E. Coli</div>
-                      <span className="px-3 py-1 bg-orange-100/80 border border-orange-300/50 rounded-full text-xs text-orange-700 font-semibold">Expiring Soon</span>
-                    </div>
-                    <div className="text-xs text-gray-600">12 doses · Exp: Jun 10, 2026</div>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="font-medium text-gray-900">PRRS</div>
-                      <span className="px-3 py-1 bg-red-100/80 border border-red-300/50 rounded-full text-xs text-red-700 font-semibold">Low Stock</span>
-                    </div>
-                    <div className="text-xs text-gray-600">5 doses · Exp: May 20, 2026</div>
-                  </div>
+                  ) : (
+                    vaccineStock.map((item) => {
+                      const isLow = item.stock_quantity < 10;
+                      const isExpiringSoon =
+                        item.expiry_date &&
+                        new Date(item.expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                      let statusBadge = 'OK';
+                      let statusColor = 'bg-green-100/80 border-green-300/50 text-green-700';
+                      if (isLow) {
+                        statusBadge = 'Low Stock';
+                        statusColor = 'bg-red-100/80 border-red-300/50 text-red-700';
+                      } else if (isExpiringSoon) {
+                        statusBadge = 'Expiring Soon';
+                        statusColor = 'bg-orange-100/80 border-orange-300/50 text-orange-700';
+                      }
+                      return (
+                        <div key={item.id} className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-medium text-gray-900">{item.vaccine_name}</div>
+                            <span
+                              className={`px-3 py-1 ${statusColor} rounded-full text-xs font-semibold`}
+                            >
+                              {statusBadge}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {item.stock_quantity} doses · Exp:{' '}
+                            {item.expiry_date
+                              ? new Date(item.expiry_date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                              : 'N/A'}
+                            {item.price_per_dose && ` · ₱${item.price_per_dose.toFixed(2)}/dose`}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -395,79 +567,174 @@ export default function VaccinationScreen() {
                     Auto
                   </div>
                 </div>
+
                 <div className="space-y-3">
                   {scheduleBatches
-                    .filter(batch => selectedBatch === 'all' ? true : batch.id === selectedBatch)
+                    .filter((batch) => (selectedBatch === 'all' ? true : batch.id === selectedBatch))
                     .map((batch) => {
-                    const day = batch.day || 0;
-                    const pigCount = batch.pigCount || 0;
-                    const nextVax = getNextVaccination(day);
-                    const completedVaxes = getCompletedVaccinations(day);
-                    const isDue = nextVax ? isVaccinationDue(day, nextVax) : false;
-                    const isOverdue = nextVax ? isVaccinationOverdue(day, nextVax) : false;
-                    const daysUntil = nextVax ? getDaysUntilVaccination(day, nextVax) : null;
-                    const totalDoses = nextVax ? nextVax.dosePerPig * pigCount : 0;
+                      const day = batch.day || 0;
+                      const pigCount = batch.pigCount || 0;
 
-                    return (
-                      <div
-                        key={batch.id}
-                        className={`bg-white/30 backdrop-blur-sm rounded-xl p-3 border border-white/30 ${
-                          isOverdue ? 'bg-red-50/40 border-red-200/50' : ''
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <div className="font-semibold text-gray-900 text-sm">{batch.name} – Day {day}</div>
-                            <div className="flex items-center gap-1 mt-2 mb-2">
-                              {vaccinationSchedule.map((vax) => {
-                                const completed = day > vax.maxDay;
-                                const current = day >= vax.minDay && day <= vax.maxDay;
-                                return (
+                      // Get completed vaccine names for this batch from records
+                      const completedVaccines = vaccinationRecords
+                        .filter(
+                          (r) => r.batch_id === batch.id && r.status?.toLowerCase() === 'completed'
+                        )
+                        .map((r) => r.vaccine_name?.trim());
+
+                      // Build status for each vaccine in the schedule
+                      const vaccineStatuses = vaccinationSchedule.map((vax) => {
+                        const isCompleted = completedVaccines.includes(vax.vaccine);
+                        const isDue = !isCompleted && isVaccinationDue(day, vax);
+                        const isOverdue = !isCompleted && isVaccinationOverdue(day, vax);
+                        const isUpcoming = !isCompleted && !isDue && !isOverdue;
+                        return {
+                          ...vax,
+                          isCompleted,
+                          isDue,
+                          isOverdue,
+                          isUpcoming,
+                          status: isCompleted
+                            ? 'Completed'
+                            : isDue
+                            ? 'Due Now'
+                            : isOverdue
+                            ? 'Overdue'
+                            : 'Scheduled',
+                        };
+                      });
+
+                      const completedCount = vaccineStatuses.filter((v) => v.isCompleted).length;
+                      const nextVax = vaccineStatuses.find((v) => !v.isCompleted);
+                      const isAllComplete = completedCount === vaccinationSchedule.length;
+                      const hasOverdue = vaccineStatuses.some((v) => v.isOverdue);
+                      const hasDue = vaccineStatuses.some((v) => v.isDue);
+                      const overallStatus = isAllComplete
+                        ? 'Complete'
+                        : hasOverdue
+                        ? 'Overdue'
+                        : hasDue
+                        ? 'Due Now'
+                        : 'Scheduled';
+
+                      return (
+                        <div
+                          key={batch.id}
+                          className={`bg-white/30 backdrop-blur-sm rounded-xl p-3 border border-white/30 ${
+                            hasOverdue ? 'bg-red-50/40 border-red-200/50' : ''
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <div className="font-semibold text-gray-900 text-sm">
+                                {batch.name} – Day {day}
+                              </div>
+
+                              {/* Progress bar */}
+                              <div className="flex items-center gap-1 mt-2 mb-2">
+                                {vaccineStatuses.map((vax) => (
                                   <div
                                     key={vax.vaccine}
                                     className={`flex-1 h-1.5 rounded-full transition-all ${
-                                      completed ? 'bg-green-500' : current ? 'bg-yellow-500' : 'bg-gray-300'
+                                      vax.isCompleted
+                                        ? 'bg-green-500'
+                                        : vax.isDue
+                                        ? 'bg-yellow-500'
+                                        : vax.isOverdue
+                                        ? 'bg-red-500'
+                                        : 'bg-gray-300'
                                     }`}
-                                    title={vax.vaccine}
+                                    title={`${vax.vaccine} – ${vax.status}`}
                                   />
-                                );
-                              })}
+                                ))}
+                              </div>
+
+                              <div className="text-xs text-gray-600">
+                                Completed: {completedCount}/{vaccinationSchedule.length} vaccines
+                              </div>
+
+                              {nextVax && !isAllComplete && (
+                                <>
+                                  <div className="text-sm text-gray-700 mt-2">
+                                    Next: {nextVax.vaccine}
+                                  </div>
+                                  <div className="text-xs text-gray-600">
+                                    Day {nextVax.minDay}-{nextVax.maxDay} ·{' '}
+                                    {nextVax.dosePerPig * pigCount} doses needed
+                                  </div>
+                                  {nextVax.isOverdue && (
+                                    <div className="text-xs text-red-600 font-semibold mt-1">
+                                      ⚠️ Overdue by {day - nextVax.maxDay} day
+                                      {day - nextVax.maxDay > 1 ? 's' : ''}
+                                    </div>
+                                  )}
+                                  {nextVax.isDue && (
+                                    <div className="text-xs text-yellow-700 font-semibold mt-1 flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3" />
+                                      Due now
+                                    </div>
+                                  )}
+                                  {nextVax.isUpcoming && (
+                                    <div className="text-xs text-blue-600 font-medium mt-1">
+                                      In {nextVax.minDay - day} day
+                                      {nextVax.minDay - day !== 1 ? 's' : ''}
+                                    </div>
+                                  )}
+                                </>
+                              )}
+
+                              {isAllComplete && (
+                                <div className="text-xs text-green-600 font-semibold mt-2 flex items-center gap-1">
+                                  <Check className="w-3 h-3" />
+                                  All vaccinations complete
+                                </div>
+                              )}
                             </div>
-                            <div className="text-xs text-gray-600">Completed: {completedVaxes.length}/4 vaccines</div>
-                            {nextVax && (
-                              <>
-                                <div className="text-sm text-gray-700 mt-2">Next: {nextVax.vaccine}</div>
-                                <div className="text-xs text-gray-600">Day {nextVax.minDay}-{nextVax.maxDay} · {totalDoses} doses needed</div>
-                                {isOverdue && <div className="text-xs text-red-600 font-semibold mt-1">⚠️ Overdue by {day - nextVax.maxDay} day{day - nextVax.maxDay > 1 ? 's' : ''}</div>}
-                                {isDue && !isOverdue && <div className="text-xs text-yellow-700 font-semibold mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Due now</div>}
-                                {!isDue && !isOverdue && daysUntil !== null && <div className="text-xs text-blue-600 font-medium mt-1">In {daysUntil} day{daysUntil !== 1 ? 's' : ''}</div>}
-                              </>
-                            )}
-                            {!nextVax && <div className="text-xs text-green-600 font-semibold mt-2 flex items-center gap-1"><Check className="w-3 h-3" /> All vaccinations complete</div>}
+
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                overallStatus === 'Overdue'
+                                  ? 'bg-red-100/80 border border-red-300/50 text-red-700'
+                                  : overallStatus === 'Due Now'
+                                  ? 'bg-yellow-100/80 border border-yellow-300/50 text-yellow-700'
+                                  : overallStatus === 'Scheduled'
+                                  ? 'bg-blue-100/80 border border-blue-300/50 text-blue-700'
+                                  : 'bg-green-100/80 border border-green-300/50 text-green-700'
+                              }`}
+                            >
+                              {overallStatus}
+                            </span>
                           </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            isOverdue ? 'bg-red-100/80 border border-red-300/50 text-red-700' :
-                            isDue ? 'bg-yellow-100/80 border border-yellow-300/50 text-yellow-700' :
-                            nextVax ? 'bg-blue-100/80 border border-blue-300/50 text-blue-700' :
-                            'bg-green-100/80 border border-green-300/50 text-green-700'
-                          }`}>
-                            {isOverdue ? 'Overdue' : isDue ? 'Due Now' : nextVax ? 'Scheduled' : 'Complete'}
-                          </span>
+
+                          {/* Mark as Done button */}
+                          {!isAllComplete && (hasDue || hasOverdue) &&
+                            (() => {
+                              const dueVax = vaccineStatuses.find((v) => v.isDue || v.isOverdue);
+                              if (!dueVax) return null;
+                              return (
+                                <button
+                                  onClick={() => {
+                                    const doses = String(dueVax.dosePerPig * pigCount);
+                                    handleDirectMarkAsDone(batch.id, dueVax.vaccine, doses);
+                                  }}
+                                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-semibold py-2 rounded-lg shadow-lg active:scale-95 transition-all"
+                                >
+                                  Mark as Done
+                                </button>
+                              );
+                            })()}
                         </div>
-                        {(isDue || isOverdue) && (
-                          <button className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-semibold py-2 rounded-lg shadow-lg active:scale-95 transition-all">
-                            Mark as Done
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
+
                 <div className="mt-4 p-3 bg-blue-50/40 rounded-xl border border-blue-200/50">
                   <div className="flex items-start gap-2">
                     <div className="text-blue-600 text-sm">ℹ️</div>
                     <div className="flex-1">
-                      <p className="text-xs text-blue-900 font-medium">Standard vaccination schedule:</p>
+                      <p className="text-xs text-blue-900 font-medium">
+                        Standard vaccination schedule:
+                      </p>
                       <ul className="text-xs text-blue-800 mt-1 space-y-0.5 ml-2">
                         <li>• Days 7-10: Swine Fever</li>
                         <li>• Days 14-21: E. Coli</li>
@@ -489,7 +756,9 @@ export default function VaccinationScreen() {
                 </div>
                 <div className="divide-y divide-white/20">
                   {filteredRecords.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 text-sm">No vaccination records found</div>
+                    <div className="p-8 text-center text-gray-500 text-sm">
+                      No vaccination records found
+                    </div>
                   ) : (
                     filteredRecords.slice(0, 10).map((record) => (
                       <div key={record.id} className="p-4">
@@ -498,9 +767,21 @@ export default function VaccinationScreen() {
                             <div className="font-medium text-gray-900 text-sm">
                               {record.batch_name || getBatchName(record.batch_id)}
                             </div>
-                            <div className="text-xs text-gray-700 mt-1">{record.vaccine_name} · {record.dosage} doses</div>
-                            <div className="text-xs text-gray-500 mt-1">{new Date(record.vaccination_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                            {record.notes && <div className="text-xs text-gray-600 mt-1 italic">"{record.notes}"</div>}
+                            <div className="text-xs text-gray-700 mt-1">
+                              {record.vaccine_name} · {record.dosage} doses
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">
+                              {new Date(record.vaccination_date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </div>
+                            {record.notes && (
+                              <div className="text-xs text-gray-600 mt-1 italic">
+                                "{record.notes}"
+                              </div>
+                            )}
                           </div>
                           <span className="px-2 py-1 bg-blue-100/80 border border-blue-300/50 rounded-full text-xs text-blue-700 font-semibold">
                             {record.batch_id}
@@ -517,7 +798,7 @@ export default function VaccinationScreen() {
 
         {/* Record Vaccination Modal */}
         {showRecordVaccination && (
-          <div className="absolute top-0 left-0 right-0 bottom-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-3xl shadow-2xl w-full max-w-sm md:max-w-md lg:max-w-lg max-h-[80%] overflow-y-auto">
               <div className="flex items-center justify-between p-5 border-b border-white/30">
                 <h2 className="text-lg font-bold text-gray-900">Record Vaccination</h2>
@@ -538,8 +819,10 @@ export default function VaccinationScreen() {
                     className="w-full px-4 py-3 rounded-xl bg-white/40 backdrop-blur-lg border border-white/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all"
                   >
                     <option value="">Select batch...</option>
-                    {batches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
+                    {batches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -548,7 +831,9 @@ export default function VaccinationScreen() {
                   <label className="block text-sm font-semibold text-gray-800 mb-2">Vaccine Type</label>
                   <select
                     value={vaccinationForm.vaccineType}
-                    onChange={(e) => setVaccinationForm({ ...vaccinationForm, vaccineType: e.target.value })}
+                    onChange={(e) =>
+                      setVaccinationForm({ ...vaccinationForm, vaccineType: e.target.value })
+                    }
                     className="w-full px-4 py-3 rounded-xl bg-white/40 backdrop-blur-lg border border-white/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all"
                   >
                     <option value="">Select vaccine...</option>
@@ -560,7 +845,9 @@ export default function VaccinationScreen() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-2">Doses Administered</label>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    Doses Administered
+                  </label>
                   <input
                     type="number"
                     value={vaccinationForm.doses}
@@ -610,7 +897,7 @@ export default function VaccinationScreen() {
 
         {/* Restock Vaccine Modal */}
         {showRestockVaccine && (
-          <div className="absolute top-0 left-0 right-0 bottom-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
             <div className="bg-white/30 backdrop-blur-xl border border-white/40 rounded-3xl shadow-2xl w-full max-w-sm md:max-w-md lg:max-w-lg max-h-[80%] overflow-y-auto">
               <div className="flex items-center justify-between p-5 border-b border-white/30">
                 <h2 className="text-lg font-bold text-gray-900">Restock Vaccine</h2>
@@ -675,7 +962,10 @@ export default function VaccinationScreen() {
                     className="w-full px-4 py-3 rounded-xl bg-white/40 backdrop-blur-lg border border-white/50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all"
                   />
                 </div>
-                <button className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-transform">
+                <button
+                  onClick={handleRestock}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white font-bold py-4 rounded-xl shadow-lg active:scale-95 transition-transform"
+                >
                   Record Purchase
                 </button>
               </div>
@@ -683,38 +973,7 @@ export default function VaccinationScreen() {
           </div>
         )}
 
-        {/* Bottom Navigation - Fixed */}
-        <div className="fixed bottom-0 left-0 right-0 bg-white/20 backdrop-blur-xl border-t border-white/30 px-4 md:px-8 lg:px-12 py-3 shadow-2xl z-50">
-          <div className="flex items-center justify-around md:justify-center md:gap-8 lg:gap-16">
-            <button onClick={() => navigate('/dashboard')} className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 bg-white/40 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-[6px_6px_12px_rgba(0,0,0,0.1),-6px_-6px_12px_rgba(255,255,255,0.8)] active:shadow-[inset_3px_3px_6px_rgba(0,0,0,0.1),inset_-3px_-3px_6px_rgba(255,255,255,0.8)] transition-all">
-                <Home className="w-6 h-6 text-gray-500" />
-              </div>
-              <span className="text-xs text-gray-600">Home</span>
-            </button>
-
-            <button onClick={() => navigate('/feeds')} className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 bg-white/40 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-[6px_6px_12px_rgba(0,0,0,0.1),-6px_-6px_12px_rgba(255,255,255,0.8)] active:shadow-[inset_3px_3px_6px_rgba(0,0,0,0.1),inset_-3px_-3px_6px_rgba(255,255,255,0.8)] transition-all">
-                <Package className="w-6 h-6 text-blue-500" />
-              </div>
-              <span className="text-xs text-gray-600">Feeds</span>
-            </button>
-
-            <button className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-pink-500 rounded-2xl flex items-center justify-center shadow-[6px_6px_12px_rgba(236,72,153,0.3),-6px_-6px_12px_rgba(251,207,232,0.5)] active:shadow-[inset_3px_3px_6px_rgba(219,39,119,0.4),inset_-3px_-3px_6px_rgba(249,168,212,0.4)] transition-all">
-                <Syringe className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xs font-semibold text-pink-600">Vaccination</span>
-            </button>
-
-            <button onClick={() => navigate('/reports')} className="flex flex-col items-center gap-1">
-              <div className="w-12 h-12 bg-white/40 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-[6px_6px_12px_rgba(0,0,0,0.1),-6px_-6px_12px_rgba(255,255,255,0.8)] active:shadow-[inset_3px_3px_6px_rgba(0,0,0,0.1),inset_-3px_-3px_6px_rgba(255,255,255,0.8)] transition-all">
-                <TrendingUp className="w-6 h-6 text-green-500" />
-              </div>
-              <span className="text-xs text-gray-600">Reports</span>
-            </button>
-          </div>
-        </div>
+        <BottomNav active="Vaccination" />
       </div>
     </div>
   );
