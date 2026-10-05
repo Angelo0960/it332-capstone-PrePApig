@@ -497,7 +497,7 @@ export default function FeedsInventoryScreen() {
                       : 'bg-white/30 text-gray-700'
                   }`}
                 >
-                  {batch.name}
+                  {batch.name} · {batch.pigCount ?? 0} pigs
                 </button>
               ))}
             </div>
@@ -792,7 +792,7 @@ export default function FeedsInventoryScreen() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <div className="font-semibold text-gray-900 text-sm">
-                                {batch.name} – Day {batch.day}
+                                {batch.name} – {batch.pigCount ?? 0} pigs · Day {batch.day}
                               </div>
                               <div className="text-xs text-gray-600 mt-1">
                                 {isDone ? 'Completed today' : `Next feeding: ${scheduleTime}`}

@@ -336,6 +336,11 @@ export default function VaccinationScreen() {
     return batch ? batch.name : 'Unknown';
   };
 
+  const getBatchPigCount = (batchId) => {
+    const batch = batches.find((b) => b.id === batchId);
+    return batch?.pigCount ?? 0;
+  };
+
   const getVaccinePrice = (name) => {
     if (!name) return 0;
     const trimmed = name.trim();
@@ -436,7 +441,7 @@ export default function VaccinationScreen() {
                       : 'bg-white/30 text-gray-700'
                   }`}
                 >
-                  {batch.name}
+                  {batch.name} · {batch.pigCount ?? 0} pigs
                 </button>
               ))}
             </div>
@@ -650,7 +655,7 @@ export default function VaccinationScreen() {
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
                               <div className="font-semibold text-gray-900 text-sm">
-                                {batch.name} – Day {day}
+                                {batch.name} – {pigCount} pigs · Day {day}
                               </div>
 
                               {/* Progress bar */}
@@ -788,7 +793,7 @@ export default function VaccinationScreen() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="font-medium text-gray-900 text-sm">
-                              {record.batch_name || getBatchName(record.batch_id)}
+                              {record.batch_name || getBatchName(record.batch_id)} · {getBatchPigCount(record.batch_id)} pigs
                             </div>
                             <div className="text-xs text-gray-700 mt-1">
                               {record.vaccine_name} · {record.dosage} doses
