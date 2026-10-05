@@ -40,10 +40,16 @@ export const createExpense = async (req, res) => {
 // VIEW ALL
 export const getAllExpenses = async (req, res) => {
     try {
-        const { data, error } = await supabase
+        const limit = req.query.limit ? Math.min(Math.max(Number(req.query.limit) || 100, 1), 500) : null;
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
+        let query = supabase
             .from('expenses')
-            .select('*')
+            .select('id,batch_id,expense_type,amount,expense_date,description,created_at')
+            .gte('expense_date', req.query.from || '1900-01-01')
+            .lte('expense_date', req.query.to || '2999-12-31')
             .order('expense_date', { ascending: false });
+        if (limit !== null) query = query.range(offset, offset + limit - 1);
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -144,7 +150,7 @@ export const getExpenseSummary = async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('expenses')
-            .select('*');
+            .select('amount');
 
         if (error) throw error;
 

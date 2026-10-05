@@ -54,3 +54,17 @@ CREATE TABLE expenses (
     description TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+ALTER TABLE pig_batches ADD COLUMN IF NOT EXISTS owner_id UUID;
+ALTER TABLE feed_records ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_pig_batches_owner ON pig_batches (owner_id);
+
+CREATE INDEX IF NOT EXISTS idx_pig_batches_created_at ON pig_batches (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pig_batches_status ON pig_batches (status);
+CREATE INDEX IF NOT EXISTS idx_feed_records_date ON feed_records (feeding_date DESC);
+CREATE INDEX IF NOT EXISTS idx_feed_records_batch ON feed_records (batch_id);
+CREATE INDEX IF NOT EXISTS idx_feed_records_reminder ON feed_records (feeding_date, reminder_sent);
+CREATE INDEX IF NOT EXISTS idx_vaccination_records_date ON vaccination_records (vaccination_date DESC);
+CREATE INDEX IF NOT EXISTS idx_vaccination_records_due_status ON vaccination_records (next_due_date, status);
+CREATE INDEX IF NOT EXISTS idx_vaccination_records_batch ON vaccination_records (batch_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses (expense_date DESC);

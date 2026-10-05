@@ -81,10 +81,14 @@ export const createNotification = async (req, res) => {
 // ---------- View All Notifications ----------
 export const getAllNotifications = async (req, res) => {
     try {
-        const { data, error } = await supabase
+        const limit = req.query.limit ? Math.min(Math.max(Number(req.query.limit) || 50, 1), 200) : null;
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
+        let query = supabase
             .from('notifications')
-            .select('*')
+            .select('id,user_id,title,message,type,is_read,created_at')
             .order('created_at', { ascending: false });
+        if (limit !== null) query = query.range(offset, offset + limit - 1);
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -122,6 +126,22 @@ export const markAsRead = async (req, res) => {
             success: false,
             message: error.message
         });
+    }
+};
+
+export const markAllAsRead = async (req, res) => {
+    try {
+        let query = supabase
+            .from('notifications')
+            .update({ is_read: true })
+            .eq('is_read', false);
+        if (req.user?.id && req.user.id !== 'admin') query = query.eq('user_id', req.user.id);
+        const { data, error } = await query.select('id');
+
+        if (error) throw error;
+        res.json({ success: true, count: data?.length || 0 });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 

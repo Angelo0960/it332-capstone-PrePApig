@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginScreen from './pages/LoginPage.jsx';
-import DashboardScreen from './pages/DashboardScreen.jsx';
-import FeedsInventoryScreen from './pages/FeedsInventoryScreen.jsx';
-import AnalyticsReportsScreen from './pages/AnalyticsReportScreen.jsx';
-import VaccinationScreen from './pages/VaccinationScreen.jsx';
-import BatchPigsScreen from './pages/BatchPigsScreen.jsx'; // ✅ Import the new screen
+const DashboardScreen = lazy(() => import('./pages/DashboardScreen.jsx'));
+const FeedsInventoryScreen = lazy(() => import('./pages/FeedsInventoryScreen.jsx'));
+const AnalyticsReportsScreen = lazy(() => import('./pages/AnalyticsReportScreen.jsx'));
+const VaccinationScreen = lazy(() => import('./pages/VaccinationScreen.jsx'));
+const BatchPigsScreen = lazy(() => import('./pages/BatchPigsScreen.jsx'));
 import { generateToken, onMessageListener } from './services/firebase.js';
 import { registerFcmToken } from './api.js';
 import './App.css';
@@ -56,6 +56,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
       <Routes>
         <Route
           path="/"
@@ -109,6 +110,7 @@ function App() {
           }
         />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

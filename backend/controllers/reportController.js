@@ -4,21 +4,18 @@ import supabase from '../config/supabase.js';
 export const getDashboardReport = async (req, res) => {
     try {
 
-        const { count: totalBatches } = await supabase
-            .from('pig_batches')
-            .select('*', { count: 'exact', head: true });
-
-        const { data: expenses } = await supabase
-            .from('expenses')
-            .select('amount');
-
-        const { count: totalFeedRecords } = await supabase
-            .from('feed_records')
-            .select('*', { count: 'exact', head: true });
-
-        const { count: totalVaccinations } = await supabase
-            .from('vaccination_records')
-            .select('*', { count: 'exact', head: true });
+        const [batches, expensesResult, feeds, vaccinations] = await Promise.all([
+            supabase.from('pig_batches').select('id', { count: 'exact', head: true }),
+            supabase.from('expenses').select('amount'),
+            supabase.from('feed_records').select('id', { count: 'exact', head: true }),
+            supabase.from('vaccination_records').select('id', { count: 'exact', head: true }),
+        ]);
+        const queryErrors = [batches, expensesResult, feeds, vaccinations].filter((result) => result.error);
+        if (queryErrors.length > 0) throw queryErrors[0].error;
+        const totalBatches = batches.count;
+        const totalFeedRecords = feeds.count;
+        const totalVaccinations = vaccinations.count;
+        const expenses = expensesResult.data || [];
 
         const totalExpenses = expenses.reduce(
             (sum, item) => sum + Number(item.amount),

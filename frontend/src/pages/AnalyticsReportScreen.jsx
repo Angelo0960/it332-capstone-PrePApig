@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -59,6 +59,15 @@ export default function AnalyticsReportsScreen() {
   // --- Report modal state ---
   const [reportModal, setReportModal] = useState(null); // null or report name
 
+  const getDateQuery = () => {
+    const end = new Date();
+    const start = new Date(end);
+    if (dateRange === 'This month') start.setDate(1);
+    else if (dateRange === 'Last 90 days') start.setDate(start.getDate() - 89);
+    else start.setDate(start.getDate() - 29);
+    return `from=${start.toISOString().slice(0, 10)}&to=${end.toISOString().slice(0, 10)}`;
+  };
+
   // ---------- Fetch all data ----------
   const fetchAllData = async () => {
     setLoading(true);
@@ -66,9 +75,9 @@ export default function AnalyticsReportsScreen() {
     try {
       const results = await Promise.allSettled([
         fetch(`${API_BASE}/pigs/all`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/feeds/all`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/vaccinations/all`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/expenses/all`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/feeds/all?${getDateQuery()}`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/vaccinations/all?${getDateQuery()}`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE}/expenses/all?${getDateQuery()}`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE}/feeds/stock`, { headers: getAuthHeaders() }),
         fetch(`${API_BASE}/vaccinations/stock`, { headers: getAuthHeaders() }),
       ]);
@@ -108,7 +117,7 @@ export default function AnalyticsReportsScreen() {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [dateRange]);
 
   // ---------- Filter data by selected batch ----------
   const filterByBatch = (data, batchIdField) => {
@@ -118,9 +127,18 @@ export default function AnalyticsReportsScreen() {
     return data.filter((item) => item[batchIdField] === batch.id);
   };
 
-  const filteredFeedRecords = filterByBatch(feedRecords, 'batch_id');
-  const filteredVaccinationRecords = filterByBatch(vaccinationRecords, 'batch_id');
-  const filteredExpenses = filterByBatch(expenses, 'batch_id');
+  const filteredFeedRecords = useMemo(
+    () => filterByBatch(feedRecords, 'batch_id'),
+    [feedRecords, batches, selectedBatch]
+  );
+  const filteredVaccinationRecords = useMemo(
+    () => filterByBatch(vaccinationRecords, 'batch_id'),
+    [vaccinationRecords, batches, selectedBatch]
+  );
+  const filteredExpenses = useMemo(
+    () => filterByBatch(expenses, 'batch_id'),
+    [expenses, batches, selectedBatch]
+  );
 
   // ---------- Currency helper ----------
   const formatCurrency = (amount) => {
@@ -151,8 +169,8 @@ export default function AnalyticsReportsScreen() {
     return Math.round(total * 100) / 100;
   };
 
-  const totalFeedCost = getFeedCost();
-  const totalVaccineCost = getVaccineCost();
+  const totalFeedCost = useMemo(() => getFeedCost(), [filteredFeedRecords, feedStock]);
+  const totalVaccineCost = useMemo(() => getVaccineCost(), [filteredVaccinationRecords, vaccineStock]);
   const combinedExpenses = totalFeedCost + totalVaccineCost;
 
   // ---------- Computed data for charts ----------
@@ -274,7 +292,10 @@ export default function AnalyticsReportsScreen() {
   };
 
   // 6. Total feed stock
-  const totalFeedStock = feedStock.reduce((sum, s) => sum + (s.stock_quantity || 0), 0);
+  const totalFeedStock = useMemo(
+    () => feedStock.reduce((sum, s) => sum + (s.stock_quantity || 0), 0),
+    [feedStock]
+  );
 
   // ---------- Report actions ----------
   const handleViewReport = (reportName) => {

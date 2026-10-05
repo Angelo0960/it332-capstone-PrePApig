@@ -63,8 +63,7 @@ export default function BatchPigsScreen() {
   };
 
   useEffect(() => {
-    fetchBatchName();
-    fetchPigs();
+    Promise.all([fetchBatchName(), fetchPigs()]);
   }, [batchId]);
 
   // Add pig

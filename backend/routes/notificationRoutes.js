@@ -7,8 +7,9 @@ const notificationRouter = express.Router();
 
 // Existing routes
 notificationRouter.post('/send', notificationController.createNotification);
-notificationRouter.get('/all', notificationController.getAllNotifications);
-notificationRouter.patch('/:id/read', notificationController.markAsRead);
+notificationRouter.get('/all', authMiddleware, notificationController.getAllNotifications);
+notificationRouter.patch('/read-all', authMiddleware, notificationController.markAllAsRead);
+notificationRouter.patch('/:id/read', authMiddleware, notificationController.markAsRead);
 notificationRouter.delete('/:id', notificationController.deleteNotification);
 
 // NEW: save device token (requires authentication)

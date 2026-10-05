@@ -132,16 +132,19 @@ export const sendVaccinationReminders = async () => {
 
     // 2. Fetch overdue vaccinations (next_due_date < today)
     // Also send reminders for records already marked 'Overdue' (e.g., once a week)
-const { data: alreadyOverdue } = await supabase
-    .from('vaccination_records')
-    .select(`
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const { data: alreadyOverdue } = await supabase
+        .from('vaccination_records')
+        .select(`
         id,
         vaccine_name,
         next_due_date,
         pig_batches ( batch_code, owner_id )
     `)
-    .eq('status', 'Overdue')
-    .gt('next_due_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // only within last week
+        .eq('status', 'Overdue')
+        .gte('next_due_date', sevenDaysAgo)
+        .lt('next_due_date', today);
+    const overdueVaccinations = alreadyOverdue || [];
     // Update overdue records status to 'Overdue'
     if (overdueVaccinations.length > 0) {
         const overdueIds = overdueVaccinations.map(v => v.id);

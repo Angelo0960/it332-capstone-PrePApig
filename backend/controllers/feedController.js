@@ -121,10 +121,16 @@ export const createFeedRecord = async (req, res) => {
 // VIEW ALL
 export const getAllFeedRecords = async (req, res) => {
     try {
-        const { data, error } = await supabase
+        const limit = req.query.limit ? Math.min(Math.max(Number(req.query.limit) || 100, 1), 500) : null;
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
+        let query = supabase
             .from('feed_records')
-            .select('*')
+            .select('id,batch_id,feed_type,quantity_kg,feeding_date,feeding_time,notes,created_at')
+            .gte('feeding_date', req.query.from || '1900-01-01')
+            .lte('feeding_date', req.query.to || '2999-12-31')
             .order('feeding_date', { ascending: false });
+        if (limit !== null) query = query.range(offset, offset + limit - 1);
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -175,8 +181,9 @@ export const getFeedByBatch = async (req, res) => {
 
         const { data, error } = await supabase
             .from('feed_records')
-            .select('*')
-            .eq('batch_id', batchId);
+            .select('id,batch_id,feed_type,quantity_kg,feeding_date,feeding_time,notes,created_at')
+            .eq('batch_id', batchId)
+            .order('feeding_date', { ascending: false });
 
         if (error) throw error;
 
@@ -252,7 +259,7 @@ export const getFeedSummary = async (req, res) => {
 
         const { data, error } = await supabase
             .from('feed_records')
-            .select('*');
+            .select('quantity_kg');
 
         if (error) throw error;
 

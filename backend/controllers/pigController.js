@@ -80,10 +80,14 @@ export const createBatch = async (req, res) => {
 
 export const getAllBatches = async (req, res) => {
     try {
-        const { data, error } = await supabase
+        const limit = req.query.limit ? Math.min(Math.max(Number(req.query.limit) || 100, 1), 500) : null;
+        const offset = Math.max(Number(req.query.offset) || 0, 0);
+        let query = supabase
             .from('pig_batches')
-            .select('*')
+            .select('id,batch_code,pig_count,breed,start_weight,current_weight,date_acquired,status,created_at')
             .order('created_at', { ascending: false });
+        if (limit !== null) query = query.range(offset, offset + limit - 1);
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -247,7 +251,7 @@ export const getBatchSummary = async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('pig_batches')
-            .select('*');
+            .select('pig_count,status');
 
         if (error) throw error;
 

@@ -178,14 +178,10 @@ export default function DashboardScreen() {
     const unread = notifications.filter((n) => !n.is_read);
     if (unread.length === 0) return;
     try {
-      await Promise.all(
-        unread.map(async (n) => {
-          await fetch(`${API_BASE}/notifications/${n.id}/read`, {
-            method: 'PATCH',
-            headers: getAuthHeaders(),
-          });
-        })
-      );
+      await fetch(`${API_BASE}/notifications/read-all`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+      });
       await fetchNotifications();
     } catch (err) {
       console.error('Error marking all as read:', err);
