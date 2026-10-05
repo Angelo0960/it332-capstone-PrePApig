@@ -68,46 +68,24 @@ export default function AnalyticsReportsScreen() {
     return `from=${start.toISOString().slice(0, 10)}&to=${end.toISOString().slice(0, 10)}`;
   };
 
-  // ---------- Fetch all data ----------
+  // ---------- Fetch all data in one response ----------
   const fetchAllData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const results = await Promise.allSettled([
-        fetch(`${API_BASE}/pigs/all`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/feeds/all?${getDateQuery()}`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/vaccinations/all?${getDateQuery()}`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/expenses/all?${getDateQuery()}`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/feeds/stock`, { headers: getAuthHeaders() }),
-        fetch(`${API_BASE}/vaccinations/stock`, { headers: getAuthHeaders() }),
-      ]);
-
-      const [batchesRes, feedRes, vacRes, expRes, feedStockRes, vacStockRes] = results;
-
-      if (batchesRes.status === 'fulfilled' && batchesRes.value.ok) {
-        const json = await batchesRes.value.json();
-        if (json.success) setBatches(json.data || []);
-      }
-      if (feedRes.status === 'fulfilled' && feedRes.value.ok) {
-        const json = await feedRes.value.json();
-        if (json.success) setFeedRecords(json.data || []);
-      }
-      if (vacRes.status === 'fulfilled' && vacRes.value.ok) {
-        const json = await vacRes.value.json();
-        if (json.success) setVaccinationRecords(json.data || []);
-      }
-      if (expRes.status === 'fulfilled' && expRes.value.ok) {
-        const json = await expRes.value.json();
-        if (json.success) setExpenses(json.data || []);
-      }
-      if (feedStockRes.status === 'fulfilled' && feedStockRes.value.ok) {
-        const json = await feedStockRes.value.json();
-        if (json.success) setFeedStock(json.data || []);
-      }
-      if (vacStockRes.status === 'fulfilled' && vacStockRes.value.ok) {
-        const json = await vacStockRes.value.json();
-        if (json.success) setVaccineStock(json.data || []);
-      }
+      const response = await fetch(`${API_BASE}/reports/analytics?${getDateQuery()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const json = await response.json();
+      if (!json.success) throw new Error(json.message || 'Failed to load analytics');
+      const data = json.data || {};
+      setBatches(data.batches || []);
+      setFeedRecords(data.feedRecords || []);
+      setVaccinationRecords(data.vaccinationRecords || []);
+      setExpenses(data.expenses || []);
+      setFeedStock(data.feedStock || []);
+      setVaccineStock(data.vaccineStock || []);
     } catch (err) {
       setError('Failed to load some data. Please refresh.');
     } finally {
@@ -151,8 +129,7 @@ export default function AnalyticsReportsScreen() {
     let total = 0;
     filteredFeedRecords.forEach((rec) => {
       const qty = parseFloat(rec.quantity_kg) || 0;
-      const stock = feedStock.find((s) => s.feed_type === rec.feed_type);
-      const price = stock?.unit_price || 0;
+      const price = feedPriceMap.get(rec.feed_type) || 0;
       total += qty * price;
     });
     return Math.round(total * 100) / 100;
@@ -162,13 +139,14 @@ export default function AnalyticsReportsScreen() {
     let total = 0;
     filteredVaccinationRecords.forEach((rec) => {
       const dosage = parseFloat(rec.dosage) || 0;
-      const stock = vaccineStock.find((s) => s.vaccine_name === rec.vaccine_name);
-      const price = stock?.price_per_dose || 0;
+      const price = vaccinePriceMap.get(rec.vaccine_name) || 0;
       total += dosage * price;
     });
     return Math.round(total * 100) / 100;
   };
 
+  const feedPriceMap = new Map(feedStock.map((stock) => [stock.feed_type, Number(stock.unit_price) || 0]));
+  const vaccinePriceMap = new Map(vaccineStock.map((stock) => [stock.vaccine_name, Number(stock.price_per_dose) || 0]));
   const totalFeedCost = useMemo(() => getFeedCost(), [filteredFeedRecords, feedStock]);
   const totalVaccineCost = useMemo(() => getVaccineCost(), [filteredVaccinationRecords, vaccineStock]);
   const combinedExpenses = totalFeedCost + totalVaccineCost;
@@ -296,6 +274,14 @@ export default function AnalyticsReportsScreen() {
     () => feedStock.reduce((sum, s) => sum + (s.stock_quantity || 0), 0),
     [feedStock]
   );
+  const growthData = useMemo(() => getGrowthData(), [batches, selectedBatch]);
+  const feedConsumptionData = useMemo(() => getFeedConsumptionData(), [filteredFeedRecords]);
+  const profitTrend = useMemo(
+    () => getProfitTrend(),
+    [batches, selectedBatch, filteredExpenses, combinedExpenses]
+  );
+  const expenseBreakdown = useMemo(() => getExpenseBreakdown(), [filteredExpenses]);
+  const vaccinationSummary = useMemo(() => getVaccinationSummary(), [vaccinationRecords]);
 
   // ---------- Report actions ----------
   const handleViewReport = (reportName) => {
@@ -473,11 +459,11 @@ export default function AnalyticsReportsScreen() {
                 <span className="text-xs text-gray-700 font-semibold">Vaccinations</span>
               </div>
               <div className="text-2xl font-bold text-gray-900">
-                {getVaccinationSummary().totalDoses} doses
+                {vaccinationSummary.totalDoses} doses
               </div>
               <div className="text-xs text-gray-600">
-                {getVaccinationSummary().completed} completed ·{' '}
-                {getVaccinationSummary().scheduled} scheduled
+                {vaccinationSummary.completed} completed ·{' '}
+                {vaccinationSummary.scheduled} scheduled
               </div>
             </div>
             <div className="bg-white/20 backdrop-blur-lg rounded-2xl p-4 border border-white/30 shadow-lg">
@@ -509,7 +495,7 @@ export default function AnalyticsReportsScreen() {
             <h3 className="font-semibold text-gray-900 mb-3">Pig Growth Trend (Weight vs. Age)</h3>
             <div className="bg-white/40 rounded-xl p-3 mb-3">
               <ResponsiveContainer width="100%" height={180}>
-                <LineChart data={getGrowthData()}>
+                <LineChart data={growthData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="week" tick={{ fontSize: 10 }} stroke="#6B7280" />
                   <YAxis tick={{ fontSize: 10 }} stroke="#6B7280" />
@@ -555,7 +541,7 @@ export default function AnalyticsReportsScreen() {
             <h3 className="font-semibold text-gray-900 mb-3">Feed Consumption</h3>
             <div className="bg-white/40 rounded-xl p-3 mb-3">
               <ResponsiveContainer width="100%" height={150}>
-                <LineChart data={getFeedConsumptionData()}>
+                <LineChart data={feedConsumptionData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="date" tick={{ fontSize: 9 }} stroke="#6B7280" />
                   <YAxis tick={{ fontSize: 10 }} stroke="#6B7280" />
@@ -615,7 +601,7 @@ export default function AnalyticsReportsScreen() {
                   <span className="text-gray-700 ml-2">Vaccines</span>
                   <span className="text-gray-900">{formatCurrency(totalVaccineCost)}</span>
                 </div>
-                {getExpenseBreakdown().length > 0 && (
+                {expenseBreakdown.length > 0 && (
                   <div className="flex items-center justify-between text-sm mb-1">
                     <span className="text-gray-700 ml-2">Other (manual)</span>
                     <span className="text-gray-900">
@@ -666,21 +652,21 @@ export default function AnalyticsReportsScreen() {
                 <ResponsiveContainer width="40%" height={120}>
                   <PieChart>
                     <Pie
-                      data={getExpenseBreakdown()}
+                      data={expenseBreakdown}
                       dataKey="value"
                       cx="50%"
                       cy="50%"
                       innerRadius={25}
                       outerRadius={45}
                     >
-                      {getExpenseBreakdown().map((entry, index) => (
+                      {expenseBreakdown.map((entry, index) => (
                         <Cell key={`pie-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="flex-1 space-y-2">
-                  {getExpenseBreakdown().map((item) => (
+                  {expenseBreakdown.map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
                       <div className="text-xs text-gray-700 flex-1">{item.name}</div>
@@ -703,7 +689,7 @@ export default function AnalyticsReportsScreen() {
             <div className="bg-white/40 rounded-xl p-3">
               <div className="text-sm font-semibold text-gray-900 mb-2">Monthly Profit Trend</div>
               <ResponsiveContainer width="100%" height={120}>
-                <BarChart data={getProfitTrend()}>
+                <BarChart data={profitTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                   <XAxis dataKey="month" tick={{ fontSize: 10 }} stroke="#6B7280" />
                   <YAxis tick={{ fontSize: 10 }} stroke="#6B7280" />
