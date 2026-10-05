@@ -405,7 +405,7 @@ export default function FeedsInventoryScreen() {
     }, 0);
   };
 
-  const selectedBatchData = batches.find((b) => b.id === selectedBatch);
+  const selectedBatchData = batches.find((b) => String(b.id) === String(selectedBatch));
   const batchExpense = calculateBatchFeedExpense(selectedBatch);
   const filteredRecords = feedRecords;
 
@@ -476,31 +476,22 @@ export default function FeedsInventoryScreen() {
         {/* Batch Selector */}
         <div className="px-4 md:px-8 lg:px-12 mb-4">
           <div className="bg-white/20 backdrop-blur-lg rounded-2xl border border-white/30 p-3 shadow-lg">
-            <div className="flex items-center gap-2 overflow-x-auto">
-              <button
-                onClick={() => setSelectedBatch('all')}
-                className={`px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all ${
-                  selectedBatch === 'all'
-                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
-                    : 'bg-white/30 text-gray-700'
-                }`}
-              >
-                All Batches
-              </button>
+            <label className="block text-xs font-semibold text-gray-700 mb-2" htmlFor="feed-batch-select">
+              Select batch
+            </label>
+            <select
+              id="feed-batch-select"
+              value={String(selectedBatch)}
+              onChange={(event) => setSelectedBatch(event.target.value)}
+              className="w-full rounded-xl bg-white/60 border border-white/50 px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-emerald-400"
+            >
+              <option value="all">All Batches</option>
               {batches.map((batch) => (
-                <button
-                  key={batch.id}
-                  onClick={() => setSelectedBatch(batch.id)}
-                  className={`px-4 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all ${
-                    selectedBatch === batch.id
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
-                      : 'bg-white/30 text-gray-700'
-                  }`}
-                >
+                <option key={batch.id} value={String(batch.id)}>
                   {batch.name} · {batch.pigCount ?? 0} pigs
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
         </div>
 
@@ -763,7 +754,7 @@ export default function FeedsInventoryScreen() {
 
                 <div className="space-y-3">
                   {batches
-                    .filter((batch) => (selectedBatch === 'all' ? true : batch.id === selectedBatch))
+                    .filter((batch) => (selectedBatch === 'all' ? true : String(batch.id) === String(selectedBatch)))
                     .map((batch, index) => {
                       const feedType = getFeedTypeForAge(batch.day);
                       const feedName = getFeedTypeName(feedType);
